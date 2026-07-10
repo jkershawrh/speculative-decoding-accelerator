@@ -1,0 +1,55 @@
+version: "3.8"
+
+services:
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:11434/"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  ollama-pull:
+    image: ollama/ollama:latest
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama pull qwen2.5:0.5b --host http://ollama:11434 && \
+        ollama pull qwen2.5:1.5b --host http://ollama:11434
+    restart: "no"
+
+  app:
+    build:
+      context: ./src
+      dockerfile: Containerfile
+    ports:
+      - "8000:8000"
+      - "7860:7860"
+    depends_on:
+      ollama-pull:
+        condition: service_completed_successfully
+    environment:
+      - DEMO_MODE=${DEMO_MODE:-false}
+      - TARGET_MODEL_URL=${TARGET_MODEL_URL:-http://ollama:11434/v1}
+      - TARGET_MODEL_NAME=${TARGET_MODEL_NAME:-qwen2.5:1.5b}
+      - DRAFT_MODEL_URL=${DRAFT_MODEL_URL:-http://ollama:11434/v1}
+      - DRAFT_MODEL_NAME=${DRAFT_MODEL_NAME:-qwen2.5:0.5b}
+      - SPECULATIVE_MODEL_URL=${SPECULATIVE_MODEL_URL:-}
+      - MODEL_API_KEY=${MODEL_API_KEY:-}
+      - SPECULATIVE_CLAIM_THRESHOLD=${SPECULATIVE_CLAIM_THRESHOLD:-1.5}
+      - NUM_SPECULATIVE_TOKENS=${NUM_SPECULATIVE_TOKENS:-5}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ollama-models:

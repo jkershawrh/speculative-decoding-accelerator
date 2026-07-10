@@ -1,0 +1,31 @@
+---
+# LLM configuration
+#
+# Option A: Bring your own model (MaaS - Model as a Service)
+# model:
+#   name: my-model
+#   endpoint: https://my-maas-instance:443
+#   api_key: my-api-key
+#
+# Option B: Deploy a model with this chart
+model: {}
+
+# Application configuration
+app:
+  replicas: 1
+  image: quay.io/rh-ai-quickstart/speculative-decoding-accelerator:latest
+
+# Speculative decoding configuration
+speculative:
+  # Operating mode: demo | app_layer | vllm_native
+  mode: demo
+  # Minimum speedup required before claiming "faster" (default 1.5x)
+  claimThreshold: "1.5"
+  # Number of tokens the draft model proposes per step
+  numSpeculativeTokens: "5"
+  # Model URLs (set for live mode)
+  targetModelUrl: ""
+  draftModelUrl: ""
+  speculativeModelUrl: ""
+  # Secret reference for model API key
+  # secretRef: my-model-secret

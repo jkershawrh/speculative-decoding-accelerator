@@ -1,0 +1,49 @@
+# Claim Provenance Registry — every factual assertion in the quickstart
+# Run `make audit-claims` to see unverified claims
+#
+# Rules:
+#   - Every number shown in the UI MUST have an entry here
+#   - Claims with verified: false display with "projected" or "paper reference" label
+#   - Speedup claims require minimum_speedup_for_claim threshold met on live hardware
+#   - Cost claims use "contributes to" / "estimate" language, never "guaranteed"
+
+claims:
+  - id: speculative-speedup
+    value: "Measured speedup from draft+target speculative decoding"
+    file: src/speculative.py
+    line: 0
+    source: "Pending live measurement on Intel Xeon 6 with Oberon cluster"
+    source_url: ""
+    verified: false
+    verified_date: null
+    notes: "Unverified -- blocked on Oberon. Demo mode simulates ~2x speedup. Actual speedup depends on model pair, prompt length, and hardware. Do not publish as a guaranteed claim until measured on target hardware."
+
+  - id: draft-target-pair
+    value: "350M draft + 2B target"
+    file: src/speculative.py
+    line: 0
+    source: "ibm-granite/granite-4.0-350m as draft, ibm-granite/granite-3.2-2b-instruct as target"
+    source_url: "https://huggingface.co/ibm-granite"
+    verified: true
+    verified_date: "2025-06-01"
+    notes: "Model pair verified. granite-4.0-350m (350M params) serves as draft model, granite-3.2-2b-instruct (2B params) as target. Configured in vLLM --speculative-config with num_speculative_tokens=5."
+
+  - id: vllm-speculative-config
+    value: "vLLM native speculative decoding with --speculative-config"
+    file: src/speculative.py
+    line: 0
+    source: "vLLM documentation and Oberon deployment manifest"
+    source_url: "https://docs.vllm.ai/en/latest/features/spec_decode.html"
+    verified: true
+    verified_date: "2025-06-01"
+    notes: "vLLM supports speculative decoding via --speculative-config JSON parameter. Verified in infrastructure/oberon/vllm-speculative.yaml deployment manifest."
+
+  - id: bfloat16-precision
+    value: "bfloat16 precision for CPU inference"
+    file: src/speculative.py
+    line: 0
+    source: "Intel Xeon 6 AMX support for bfloat16"
+    source_url: "https://www.intel.com/content/www/us/en/products/docs/accelerator-engines/advanced-matrix-extensions/overview.html"
+    verified: true
+    verified_date: "2025-06-01"
+    notes: "Intel Xeon 6 (Granite Rapids / Sierra Forest) supports native bfloat16 via AMX. vLLM --dtype=bfloat16 uses this acceleration."

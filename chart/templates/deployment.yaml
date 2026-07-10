@@ -1,0 +1,70 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-app
+  labels:
+    app.kubernetes.io/name: speculative-decoding-accelerator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.app.replicas }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: speculative-decoding-accelerator
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: speculative-decoding-accelerator
+        app.kubernetes.io/instance: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: app
+          image: {{ .Values.app.image }}
+          ports:
+            - containerPort: 8000
+              protocol: TCP
+          env:
+            - name: DEMO_MODE
+              value: {{ eq .Values.speculative.mode "demo" | ternary "true" "false" | quote }}
+            - name: SPECULATIVE_CLAIM_THRESHOLD
+              value: {{ .Values.speculative.claimThreshold | quote }}
+            - name: NUM_SPECULATIVE_TOKENS
+              value: {{ .Values.speculative.numSpeculativeTokens | quote }}
+            {{- if .Values.speculative.targetModelUrl }}
+            - name: TARGET_MODEL_URL
+              value: {{ .Values.speculative.targetModelUrl | quote }}
+            {{- end }}
+            {{- if .Values.speculative.draftModelUrl }}
+            - name: DRAFT_MODEL_URL
+              value: {{ .Values.speculative.draftModelUrl | quote }}
+            {{- end }}
+            {{- if .Values.speculative.speculativeModelUrl }}
+            - name: SPECULATIVE_MODEL_URL
+              value: {{ .Values.speculative.speculativeModelUrl | quote }}
+            {{- end }}
+            {{- if .Values.speculative.secretRef }}
+            - name: MODEL_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.speculative.secretRef }}
+                  key: api-key
+            {{- end }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 250m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi

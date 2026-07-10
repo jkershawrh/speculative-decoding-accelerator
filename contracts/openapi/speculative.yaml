@@ -1,0 +1,416 @@
+openapi: 3.1.0
+info:
+  title: Speculative Decoding Accelerator API
+  version: 1.0.0
+  description: >
+    REST API for benchmarking speculative decoding on Intel Xeon CPUs.
+    Pairs a small draft model (350M) with a larger target model (2B) to
+    accelerate text generation. Supports vLLM native speculative decoding
+    and app-layer draft model comparison.
+  contact:
+    name: Red Hat x Intel Quickstarts
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+
+servers:
+  - url: http://localhost:8000
+    description: Local development server
+
+paths:
+  /health:
+    get:
+      operationId: getHealth
+      summary: Service health check
+      description: >
+        Returns the service health status, current operating mode, and version.
+      tags:
+        - Health
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+
+  /api/v1/speculative/status:
+    get:
+      operationId: getSpeculativeStatus
+      summary: Speculative decoding configuration status
+      description: >
+        Reports whether speculative decoding is configured, which models
+        are in use, the operating mode (vllm_native or app_layer), and
+        the speedup claim threshold.
+      tags:
+        - Speculative
+      responses:
+        "200":
+          description: Configuration status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeculativeStatusResponse"
+
+  /api/v1/speculative/run:
+    post:
+      operationId: runSpeculativeComparison
+      summary: Run speculative decoding comparison
+      description: >
+        Runs inference through the target model (baseline) and then through
+        the speculative model (vLLM native or app-layer draft), returning
+        latency measurements and the computed speedup. The speedup_meets_threshold
+        field indicates whether the measured speedup exceeds the configured
+        claim threshold.
+      tags:
+        - Speculative
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SpeculativeRunRequest"
+      responses:
+        "200":
+          description: Comparison completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SpeculativeRunResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Comparison failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/inference:
+    post:
+      operationId: runInference
+      summary: Run inference (uses speculative decoding when available)
+      description: >
+        Standard inference endpoint. When speculative decoding is configured,
+        uses the speculative model for faster generation. Falls back to the
+        target model if the speculative model is unavailable.
+      tags:
+        - Inference
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InferenceRequest"
+      responses:
+        "200":
+          description: Inference completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InferenceResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Inference failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/v1/stats:
+    get:
+      operationId: getStats
+      summary: Runtime statistics
+      description: >
+        Returns aggregate runtime statistics including request counts,
+        average latency, speedup history, and uptime.
+      tags:
+        - Stats
+      responses:
+        "200":
+          description: Statistics retrieved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StatsResponse"
+
+components:
+  schemas:
+    # ------------------------------------------------------------------
+    # Health
+    # ------------------------------------------------------------------
+    HealthResponse:
+      type: object
+      required:
+        - status
+        - mode
+        - version
+      properties:
+        status:
+          type: string
+          description: Overall service health
+          examples:
+            - healthy
+        mode:
+          $ref: "#/components/schemas/OperatingMode"
+        version:
+          type: string
+          description: Service version
+          examples:
+            - "1.0.0"
+
+    # ------------------------------------------------------------------
+    # Speculative Status
+    # ------------------------------------------------------------------
+    SpeculativeStatusResponse:
+      type: object
+      required:
+        - speculative_configured
+        - target_model
+        - draft_model
+        - mode
+        - claim_threshold
+      properties:
+        speculative_configured:
+          type: boolean
+          description: Whether speculative decoding models are configured
+        target_model:
+          type: string
+          description: Name or URL of the target (verification) model
+          examples:
+            - granite-2b-cpu
+        draft_model:
+          type: string
+          description: Name or URL of the draft model
+          examples:
+            - granite-350m
+        speculative_model:
+          type: string
+          description: Name or URL of the vLLM speculative model (if configured)
+          examples:
+            - granite-2b-cpu-speculative
+        mode:
+          $ref: "#/components/schemas/OperatingMode"
+        num_speculative_tokens:
+          type: integer
+          description: Number of tokens the draft model proposes per step
+          examples:
+            - 5
+        claim_threshold:
+          type: number
+          format: double
+          description: >
+            Minimum speedup required before claiming speculative decoding
+            is faster (default 1.5x)
+          examples:
+            - 1.5
+
+    # ------------------------------------------------------------------
+    # Speculative Run
+    # ------------------------------------------------------------------
+    SpeculativeRunRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Input text for the comparison run
+          examples:
+            - "Summarize the benefits of speculative decoding for healthcare AI."
+        max_tokens:
+          type: integer
+          description: Maximum tokens to generate
+          default: 128
+          minimum: 1
+          maximum: 4096
+
+    SpeculativeRunResponse:
+      type: object
+      required:
+        - baseline
+        - speculative
+        - speedup
+        - speedup_meets_threshold
+        - ai_disclaimer
+      properties:
+        baseline:
+          $ref: "#/components/schemas/ModelResult"
+        speculative:
+          $ref: "#/components/schemas/SpeculativeResult"
+        speedup:
+          type: number
+          format: double
+          description: >
+            Ratio of baseline latency to speculative latency.
+            Values > 1.0 indicate the speculative model was faster.
+          examples:
+            - 1.85
+        speedup_meets_threshold:
+          type: boolean
+          description: Whether measured speedup meets the configured claim threshold
+        ai_disclaimer:
+          type: string
+          description: Environment-specific measurement disclaimer
+
+    ModelResult:
+      type: object
+      required:
+        - latency_ms
+        - output
+        - tokens
+      properties:
+        latency_ms:
+          type: number
+          format: double
+          description: Inference latency in milliseconds
+        output:
+          type: string
+          description: Generated text
+        tokens:
+          type: integer
+          description: Number of tokens generated
+
+    SpeculativeResult:
+      type: object
+      required:
+        - latency_ms
+        - output
+        - tokens
+        - method
+      properties:
+        latency_ms:
+          type: number
+          format: double
+          description: Inference latency in milliseconds
+        output:
+          type: string
+          description: Generated text
+        tokens:
+          type: integer
+          description: Number of tokens generated
+        method:
+          $ref: "#/components/schemas/SpeculativeMethod"
+
+    # ------------------------------------------------------------------
+    # Inference
+    # ------------------------------------------------------------------
+    InferenceRequest:
+      type: object
+      required:
+        - text
+      properties:
+        text:
+          type: string
+          description: Input text for inference
+          examples:
+            - "What are the key symptoms of Type 2 diabetes?"
+        max_tokens:
+          type: integer
+          description: Maximum tokens to generate
+          default: 128
+          minimum: 1
+          maximum: 4096
+
+    InferenceResponse:
+      type: object
+      required:
+        - output
+        - model
+        - latency_ms
+        - tokens
+        - method
+        - ai_disclaimer
+      properties:
+        output:
+          type: string
+          description: Generated text
+        model:
+          type: string
+          description: Model identifier used
+        latency_ms:
+          type: number
+          format: double
+          description: Inference latency in milliseconds
+        tokens:
+          type: integer
+          description: Number of tokens generated
+        method:
+          $ref: "#/components/schemas/SpeculativeMethod"
+        ai_disclaimer:
+          type: string
+          description: Environment-specific measurement disclaimer
+
+    # ------------------------------------------------------------------
+    # Stats
+    # ------------------------------------------------------------------
+    StatsResponse:
+      type: object
+      required:
+        - request_count
+        - average_latency_ms
+        - uptime_seconds
+        - mode
+        - version
+      properties:
+        request_count:
+          type: integer
+          description: Total inference requests served
+        average_latency_ms:
+          type: number
+          format: double
+          description: Average inference latency across all requests
+        average_speedup:
+          type: number
+          format: double
+          description: Average measured speedup across comparison runs
+        uptime_seconds:
+          type: number
+          format: double
+          description: Server uptime in seconds
+        mode:
+          $ref: "#/components/schemas/OperatingMode"
+        version:
+          type: string
+
+    # ------------------------------------------------------------------
+    # Shared / Enums
+    # ------------------------------------------------------------------
+    OperatingMode:
+      type: string
+      description: Current operating mode of the speculative decoding engine
+      enum:
+        - vllm_native
+        - app_layer
+        - demo
+
+    SpeculativeMethod:
+      type: string
+      description: Method used for speculative decoding in this result
+      enum:
+        - vllm_native
+        - app_layer
+
+    # ------------------------------------------------------------------
+    # Error
+    # ------------------------------------------------------------------
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+        detail:
+          type: string
+          description: Additional diagnostic information

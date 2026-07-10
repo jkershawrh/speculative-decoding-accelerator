@@ -1,0 +1,15 @@
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: {{ .Release.Name }}-app
+  labels:
+    app.kubernetes.io/name: speculative-decoding-accelerator
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  to:
+    kind: Service
+    name: {{ .Release.Name }}-app
+  port:
+    targetPort: http
+  tls:
+    termination: edge

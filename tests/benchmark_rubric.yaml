@@ -1,0 +1,47 @@
+# Benchmark Rubric — technique-specific performance validation
+# Governs Stage 4 of the validation matrix.
+
+benchmark_rubric:
+  version: "1.0"
+  description: "Performance validation for speculative decoding on Intel Xeon CPUs"
+
+  verification_policy:
+    verified_means: "Measured by a live endpoint in the target environment"
+    public_claim_rules:
+      - "Do not publish speedup claims unless claim_registry marks them verified"
+      - "If speculative decoding is configured but unmeasured, present as 'configured, pending measurement'"
+      - "Speedup claims use 'measured' or 'observed' language, never 'guaranteed'"
+      - "All speedup numbers must exceed the claim_threshold (default 1.5x) on live hardware"
+
+  run_modes:
+    local:
+      description: "Unit tests, contract validation, static checks"
+      no_cluster_required: true
+    compose:
+      description: "Full docker-compose stack in demo mode (simulated speculative decoding)"
+      requires: ["podman", "docker-compose"]
+    openshift:
+      description: "Helm deployment on OpenShift with vLLM speculative decoding pods"
+      requires: ["oc", "helm", "xeon-6-nodes"]
+
+  benchmarks:
+    speculative_speedup:
+      description: "Speedup of speculative decoding vs baseline target model"
+      test_text: "Summarize the benefits of speculative decoding for healthcare AI inference"
+      minimum_speedup_for_claim: 1.5
+      required_fields: ["baseline_latency_ms", "speculative_latency_ms", "speedup"]
+      notes: "Measured via /api/v1/speculative/run endpoint. Demo mode simulates ~2x speedup. Live measurement pending on Oberon cluster."
+
+    baseline_latency:
+      description: "Target model (2B) inference latency baseline"
+      test_text: "What are the key symptoms of Type 2 diabetes?"
+      max_ms: 5000
+      required_fields: ["latency_ms", "output", "tokens"]
+      notes: "Baseline latency of granite-3.2-2b-instruct on Intel Xeon 6 with vLLM CPU."
+
+    draft_latency:
+      description: "Draft model (350M) inference latency"
+      test_text: "Explain speculative decoding."
+      max_ms: 2000
+      required_fields: ["latency_ms", "output", "tokens"]
+      notes: "Draft model (granite-4.0-350m) should be significantly faster than target. Fits in L3 cache on Xeon 6."

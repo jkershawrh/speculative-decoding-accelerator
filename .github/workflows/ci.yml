@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r src/requirements.txt
+          pip install pytest pytest-asyncio httpx gradio
+
+      - name: Run tests
+        env:
+          DEMO_MODE: "true"
+        run: |
+          python -m pytest tests/ -v --tb=short
+
+      - name: Validate README word count
+        run: |
+          WORDS=$(wc -w < README.md | tr -d ' ')
+          echo "README word count: $WORDS"
+          if [ "$WORDS" -lt 250 ]; then
+            echo "FAIL: README has $WORDS words, minimum 250 required"
+            exit 1
+          fi
+
+      - name: Validate docker-compose
+        run: |
+          docker compose config --quiet
+
+      - name: Verify UI module imports
+        run: |
+          python -c "from src.ui import create_ui; print('UI import OK')"

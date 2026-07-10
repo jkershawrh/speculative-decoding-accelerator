@@ -1,0 +1,182 @@
+# Validation Matrix — CDD -> TDD -> EDD
+# Write tests RED, deploy until GREEN. Each stage gates the next.
+
+stages:
+
+  stage_0_contracts:
+    description: "All API contracts defined and parseable"
+    threshold: 100
+    criteria:
+      openapi_spec_valid:
+        description: "OpenAPI spec validates against 3.1"
+        points: 25
+        required: true
+      openapi_has_paths:
+        description: "Spec defines at least one path with operations"
+        points: 25
+        required: true
+      openapi_refs_resolve:
+        description: "All $ref pointers resolve within the spec"
+        points: 25
+        required: true
+      openapi_responses_defined:
+        description: "Every operation has at least one response schema"
+        points: 25
+        required: true
+
+  stage_1_infrastructure:
+    description: "Containers build, services start, health checks pass"
+    threshold: 90
+    criteria:
+      container_builds:
+        description: "Containerfile builds successfully"
+        points: 20
+        required: true
+      compose_stack_starts:
+        description: "docker-compose stack starts with all health checks passing"
+        points: 20
+        required: true
+      model_endpoint_responds:
+        description: "Model serving endpoint returns expected model name"
+        points: 20
+        required: true
+      no_hardcoded_secrets:
+        description: "No API keys, passwords, or secrets in source code"
+        points: 20
+        required: true
+      helm_template_renders:
+        description: "Helm chart renders cleanly with default values"
+        points: 20
+        required: true
+
+  stage_2_unit:
+    description: "Speculative decoding technique works in isolation"
+    threshold: 90
+    criteria:
+      target_model_responds:
+        description: "Baseline (target model) inference returns valid output and latency"
+        points: 15
+        required: true
+      draft_model_responds:
+        description: "Draft model inference returns valid output and latency"
+        points: 15
+        required: true
+      speculative_returns_both_latencies:
+        description: "Comparison returns both baseline and speculative latency measurements"
+        points: 15
+        required: true
+      speculative_faster_than_baseline:
+        description: "Speculative decoding shows speedup > 1.0 over baseline"
+        points: 15
+        required: true
+      speedup_threshold_check:
+        description: "speedup_meets_threshold field correctly reflects claim threshold"
+        points: 10
+        required: true
+      status_endpoint:
+        description: "Status endpoint reports mode, models, and claim threshold"
+        points: 10
+        required: true
+      demo_mode_works:
+        description: "Demo mode operates without real model endpoints"
+        points: 10
+        required: true
+      ai_disclaimer_present:
+        description: "AI disclaimer present in speculative run and inference responses"
+        points: 10
+        required: true
+
+  stage_3_integration:
+    description: "End-to-end flow works from API to model and back"
+    threshold: 85
+    criteria:
+      full_user_flow:
+        description: "POST speculative/run -> baseline + speculative results completes"
+        points: 25
+        required: true
+      response_has_real_metrics:
+        description: "Response contains measured latency and computed speedup"
+        points: 15
+        required: true
+      no_hardcoded_latency:
+        description: "No hardcoded ms/s values displayed as live measurements"
+        points: 15
+        required: true
+      ai_transparency_labels:
+        description: "AI-generated content labeled with persistent disclaimers"
+        points: 10
+        required: true
+      health_endpoint:
+        description: "Health endpoint returns service status + operating mode"
+        points: 10
+        required: true
+      error_handling:
+        description: "Model timeout produces user-friendly message"
+        points: 10
+        required: true
+      compose_15_min:
+        description: "docker compose up -> working demo in <= 15 minutes"
+        points: 15
+        required: true
+
+  stage_4_benchmarks:
+    description: "Performance claims meet thresholds on live hardware"
+    threshold: 80
+    criteria:
+      speculative_speedup:
+        description: "Speculative decoding speedup meets 1.5x claim threshold"
+        points: 40
+        required: true
+      baseline_latency:
+        description: "Target model baseline inference completes within acceptable latency"
+        points: 30
+        required: true
+      draft_latency:
+        description: "Draft model inference completes faster than target model"
+        points: 30
+        required: true
+
+  stage_5_publication:
+    description: "README passes automated review with zero BLOCKERs"
+    threshold: 100
+    criteria:
+      title_format:
+        description: "H1 title <= 64 chars, starts with action verb"
+        points: 10
+        required: true
+      short_description:
+        description: "Short description <= 160 chars"
+        points: 10
+        required: true
+      required_sections:
+        description: "All required README sections present in correct order"
+        points: 15
+        required: true
+      architecture_diagram:
+        description: "Architecture diagram in docs/images/ with alt text"
+        points: 10
+        required: true
+      no_credentials:
+        description: "No hardcoded credentials in repo"
+        points: 15
+        required: true
+      links_resolve:
+        description: "All links (internal + external) resolve"
+        points: 10
+        required: true
+      industry_tag:
+        description: "Industry tag from approved list"
+        points: 10
+        required: true
+      tag_format:
+        description: "Tags as bulleted list with bold key and normal value"
+        points: 5
+        required: true
+      opl_compliance:
+        description: "Red Hat trademark first-mention-only rule"
+        points: 10
+        required: true
+      accessibility:
+        description: "WCAG 2.2 AA: heading nesting, alt text, descriptive links"
+        points: 5
+        required: true

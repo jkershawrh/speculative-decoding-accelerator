@@ -1,0 +1,9 @@
+apiVersion: v2
+name: speculative-decoding-accelerator
+description: Speed up text generation by pairing a fast draft model with a verification model, no accuracy loss.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+maintainers:
+  - name: Red Hat AI Quickstarts
+    url: https://github.com/rh-ai-quickstart
