@@ -52,12 +52,12 @@ A demo mode simulates the speculative decoding comparison without requiring real
 
 ```mermaid
 flowchart LR
-    A["User Prompt"] --> B["Draft Model<br/>qwen2.5:0.5b<br/>(fast, small)"]
+    A["User Prompt"] --> B["Draft Model | qwen2.5:0.5b | (fast, small)"]
     B --> C["Proposed Tokens"]
-    C --> D["Target Model<br/>qwen2.5:1.5b<br/>(verify)"]
-    D --> E{"Accept /<br/>Reject"}
+    C --> D["Target Model | qwen2.5:1.5b | (verify)"]
+    D --> E{"Accept / | Reject"}
     E -->|Accepted| F["Final Response"]
-    E -->|Rejected| G["Resample from<br/>Target Model"]
+    E -->|Rejected| G["Resample from | Target Model"]
     G --> F
 
     subgraph Intel Xeon 6
